@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { SearchResult } from "@/lib/types";
 
 type Recent = SearchResult & { at: number };
 
 export default function Home() {
+  const router = useRouter();
   const [q, setQ] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -59,12 +61,28 @@ export default function Home() {
   const showList = q.trim().length >= 2 ? results : [];
   const showRecents = q.trim().length < 2 && recents.length > 0;
 
+  async function logout() {
+    try {
+      await fetch("/api/login", { method: "DELETE" });
+    } catch {}
+    router.replace("/login");
+    router.refresh();
+  }
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col">
       <header className="sticky top-0 z-10 border-b border-border bg-bg/90 px-4 pb-3 pt-4 backdrop-blur">
-        <h1 className="mb-3 text-xl font-bold tracking-tight">
-          Cyfra<span className="text-accent">.</span>
-        </h1>
+        <div className="mb-3 flex items-center justify-between">
+          <h1 className="text-xl font-bold tracking-tight">
+            Cyfra<span className="text-accent">.</span>
+          </h1>
+          <button
+            onClick={logout}
+            className="rounded-lg px-2 py-1 text-xs text-muted active:text-white"
+          >
+            Sair
+          </button>
+        </div>
         <div className="relative">
           <input
             autoFocus

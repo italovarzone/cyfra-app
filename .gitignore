@@ -1,0 +1,9 @@
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Variáveis de ambiente (segredos) — .env.example fica versionado
+.env
+.env*.local
