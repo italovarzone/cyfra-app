@@ -8,6 +8,64 @@ import { transposeChord, simplifyChord } from "@/lib/chords";
 
 const FONT_SIZES = [12, 13, 14, 15, 16, 18, 20, 22];
 
+// ---------- paginação de impressão/PDF ----------
+// Meta: caber em no máximo 2 folhas A4; se a música for grande demais mesmo
+// diminuindo a fonte, deixa passar de 2, mas sempre em número par de páginas
+// (pra montar pasta com folhas frente-e-verso por música).
+const MM_TO_PX = 96 / 25.4;
+const PAGE_MARGIN_MM = 14; // igual ao @page margin em globals.css
+const USABLE_PAGE_PX = (297 - PAGE_MARGIN_MM * 2) * MM_TO_PX;
+const PRINT_HEADER_PX = 40; // título/artista/tom, repetido em toda página
+const PRINT_FOOTER_PX = 24; // "Página X de Y"
+const PRINT_CAPO_PX = 26; // linha extra só na primeira página
+const MIN_PRINT_FONT_PX = 8;
+const LINE_HEIGHT_RATIO = 1.625; // Tailwind leading-relaxed
+
+type PrintLayout = {
+  fontPx: number;
+  pages: CifraLine[][];
+};
+
+function chunkLinesForFont(
+  visible: CifraLine[],
+  fontPx: number,
+  hasCapo: boolean,
+): CifraLine[][] {
+  const lineHeight = fontPx * LINE_HEIGHT_RATIO;
+  const pages: CifraLine[][] = [];
+  let i = 0;
+  while (i < visible.length) {
+    const extra = pages.length === 0 && hasCapo ? PRINT_CAPO_PX : 0;
+    const budget = USABLE_PAGE_PX - PRINT_HEADER_PX - PRINT_FOOTER_PX - extra;
+    const perPage = Math.max(1, Math.floor(budget / lineHeight));
+    pages.push(visible.slice(i, i + perPage));
+    i += perPage;
+  }
+  return pages.length ? pages : [[]];
+}
+
+function computePrintLayout(
+  visible: CifraLine[],
+  screenFontPx: number,
+  hasCapo: boolean,
+): PrintLayout {
+  let fontPx = screenFontPx;
+  let pages = chunkLinesForFont(visible, fontPx, hasCapo);
+
+  while (pages.length > 2 && fontPx > MIN_PRINT_FONT_PX) {
+    fontPx = Math.max(MIN_PRINT_FONT_PX, fontPx - 0.5);
+    pages = chunkLinesForFont(visible, fontPx, hasCapo);
+  }
+
+  // música grande demais mesmo no tamanho mínimo: aceita passar de 2
+  // páginas, mas fecha em número par
+  if (pages.length > 2 && pages.length % 2 !== 0) {
+    pages.push([]);
+  }
+
+  return { fontPx, pages };
+}
+
 export default function CifraClient() {
   const params = useSearchParams();
   const a = params.get("a") || "";
@@ -121,6 +179,15 @@ export default function CifraClient() {
 
   const fontSize = FONT_SIZES[fontIdx];
 
+  const printLayout = useMemo(() => {
+    if (!cifra) return null;
+    const visible = cifra.lines.filter(
+      (l) =>
+        !((l.type === "chord" && hideChords) || (l.type === "tab" && hideTab)),
+    );
+    return computePrintLayout(visible, fontSize, !!cifra.capo);
+  }, [cifra, hideChords, hideTab, fontSize]);
+
   async function handleDownload() {
     if (downloaded || downloading) return;
     setDownloading(true);
@@ -203,40 +270,73 @@ export default function CifraClient() {
         </p>
       )}
 
-      <div className="cifra-print">
-        {/* cabeçalho só na impressão */}
-        <div className="hidden px-1 pb-3 print:block">
-          <p className="text-lg font-semibold">{cifra.title}</p>
-          <p className="text-sm text-muted">
-            {cifra.artist}
-            {currentTom ? ` — Tom ${currentTom}` : ""}
-          </p>
-        </div>
+      {cifra.capo && (
+        <p className="px-4 pt-3 text-xs text-muted print:hidden">
+          Capotraste: <span className="text-white">{cifra.capo}</span>
+        </p>
+      )}
 
-        {cifra.capo && (
-          <p className="px-4 pt-3 text-xs text-muted">
-            Capotraste: <span className="text-white">{cifra.capo}</span>
-          </p>
-        )}
-
-        {/* cifra */}
-        <div className="overflow-x-auto px-4 py-4 print:overflow-visible print:px-1">
-          <div
-            className="cifra-pre font-mono leading-relaxed"
-            style={{ fontSize }}
-          >
-            {cifra.lines.map((line, i) => (
-              <LineView
-                key={i}
-                line={line}
-                transform={transform}
-                hideChords={hideChords}
-                hideTab={hideTab}
-              />
-            ))}
-          </div>
+      {/* cifra (tela): rolagem contínua, não entra na impressão */}
+      <div className="overflow-x-auto px-4 py-4 print:hidden">
+        <div
+          className="cifra-pre font-mono leading-relaxed"
+          style={{ fontSize }}
+        >
+          {cifra.lines.map((line, i) => (
+            <LineView
+              key={i}
+              line={line}
+              transform={transform}
+              hideChords={hideChords}
+              hideTab={hideTab}
+            />
+          ))}
         </div>
       </div>
+
+      {/* cifra (impressão/PDF): paginada, com cabeçalho e numeração próprios,
+          sem links — só informação da música, pensado pra montar pasta */}
+      {printLayout && (
+        <div className="cifra-print hidden print:block">
+          {printLayout.pages.map((pageLines, pageIdx) => (
+            <div
+              key={pageIdx}
+              style={{
+                breakAfter:
+                  pageIdx < printLayout.pages.length - 1 ? "page" : "auto",
+                pageBreakAfter:
+                  pageIdx < printLayout.pages.length - 1 ? "always" : "auto",
+              }}
+            >
+              <div className="mb-2 flex items-baseline justify-between gap-2 border-b border-black/30 pb-1 font-sans text-xs">
+                <span className="font-semibold">
+                  {cifra.title} — {cifra.artist}
+                  {currentTom ? ` — Tom ${currentTom}` : ""}
+                </span>
+              </div>
+              {pageIdx === 0 && cifra.capo && (
+                <p className="mb-2 font-sans text-xs">
+                  Capotraste: {cifra.capo}
+                </p>
+              )}
+              <div className="cifra-pre font-mono leading-relaxed" style={{ fontSize: printLayout.fontPx }}>
+                {pageLines.map((line, i) => (
+                  <LineView
+                    key={i}
+                    line={line}
+                    transform={transform}
+                    hideChords={hideChords}
+                    hideTab={hideTab}
+                  />
+                ))}
+              </div>
+              <div className="mt-2 border-t border-black/30 pt-1 text-right font-sans text-xs">
+                Página {pageIdx + 1} de {printLayout.pages.length}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* barra de controle inferior */}
       <div className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-2xl print:hidden">
