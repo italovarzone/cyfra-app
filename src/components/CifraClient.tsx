@@ -25,6 +25,10 @@ export default function CifraClient() {
   const [hideTab, setHideTab] = useState(false);
   const [fontIdx, setFontIdx] = useState(2);
 
+  const [downloaded, setDownloaded] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
   const [scrolling, setScrolling] = useState(false);
   const [speed, setSpeed] = useState(3);
   const [panel, setPanel] = useState(false);
@@ -56,6 +60,7 @@ export default function CifraClient() {
           setError(data.error || "Erro ao carregar.");
         } else {
           setCifra(data);
+          setDownloaded(!!data.downloaded);
           saveRecent({
             artist: data.artist || artistName,
             song: data.title || songName,
@@ -116,6 +121,26 @@ export default function CifraClient() {
 
   const fontSize = FONT_SIZES[fontIdx];
 
+  async function handleDownload() {
+    if (downloaded || downloading) return;
+    setDownloading(true);
+    setDownloadError(null);
+    try {
+      const res = await fetch("/api/downloads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ artistSlug: a, songSlug: s }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Falha ao baixar.");
+      setDownloaded(true);
+    } catch (e: any) {
+      setDownloadError(e?.message || "Falha ao baixar.");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   if (loading) {
     return <CenterMsg>Carregando cifra…</CenterMsg>;
   }
@@ -131,9 +156,9 @@ export default function CifraClient() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-2xl pb-40">
+    <main className="mx-auto w-full max-w-2xl pb-40 print:pb-0">
       {/* topo */}
-      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-bg/95 px-3 py-2 backdrop-blur">
+      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-bg/95 px-3 py-2 backdrop-blur print:hidden">
         <Link
           href="/"
           aria-label="Voltar"
@@ -151,35 +176,70 @@ export default function CifraClient() {
               Tom <span className="text-accent">{currentTom}</span>
             </span>
           )}
+          <button
+            onClick={handleDownload}
+            disabled={downloading}
+            aria-label={downloaded ? "Baixada" : "Baixar"}
+            title={downloaded ? "Já baixada" : "Baixar cifra"}
+            className={`rounded-md px-2 py-1 text-base active:bg-surface disabled:opacity-40 ${
+              downloaded ? "text-accent" : "text-muted"
+            }`}
+          >
+            {downloading ? "…" : downloaded ? "☁✓" : "☁"}
+          </button>
+          <button
+            onClick={() => window.print()}
+            aria-label="Exportar PDF"
+            title="Exportar PDF"
+            className="rounded-md px-2 py-1 text-xs text-muted active:bg-surface"
+          >
+            PDF
+          </button>
         </div>
       </header>
-
-      {cifra.capo && (
-        <p className="px-4 pt-3 text-xs text-muted">
-          Capotraste: <span className="text-white">{cifra.capo}</span>
+      {downloadError && (
+        <p className="px-4 pt-2 text-xs text-red-400 print:hidden">
+          {downloadError}
         </p>
       )}
 
-      {/* cifra */}
-      <div className="overflow-x-auto px-4 py-4">
-        <div
-          className="cifra-pre font-mono leading-relaxed"
-          style={{ fontSize }}
-        >
-          {cifra.lines.map((line, i) => (
-            <LineView
-              key={i}
-              line={line}
-              transform={transform}
-              hideChords={hideChords}
-              hideTab={hideTab}
-            />
-          ))}
+      <div className="cifra-print">
+        {/* cabeçalho só na impressão */}
+        <div className="hidden px-1 pb-3 print:block">
+          <p className="text-lg font-semibold">{cifra.title}</p>
+          <p className="text-sm text-muted">
+            {cifra.artist}
+            {currentTom ? ` — Tom ${currentTom}` : ""}
+          </p>
+        </div>
+
+        {cifra.capo && (
+          <p className="px-4 pt-3 text-xs text-muted">
+            Capotraste: <span className="text-white">{cifra.capo}</span>
+          </p>
+        )}
+
+        {/* cifra */}
+        <div className="overflow-x-auto px-4 py-4 print:overflow-visible print:px-1">
+          <div
+            className="cifra-pre font-mono leading-relaxed"
+            style={{ fontSize }}
+          >
+            {cifra.lines.map((line, i) => (
+              <LineView
+                key={i}
+                line={line}
+                transform={transform}
+                hideChords={hideChords}
+                hideTab={hideTab}
+              />
+            ))}
+          </div>
         </div>
       </div>
 
       {/* barra de controle inferior */}
-      <div className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-2xl">
+      <div className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-2xl print:hidden">
         {panel && (
           <div className="mx-2 mb-2 rounded-2xl border border-border bg-surface/95 p-3 shadow-xl backdrop-blur">
             <Row label="Tom">

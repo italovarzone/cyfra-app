@@ -33,3 +33,28 @@ body {
   white-space: pre;
   tab-size: 4;
 }
+
+/* impressão / exportar PDF: o app é dark mode, então força texto escuro em
+   fundo branco só na área da cifra (senão o texto claro fica invisível no
+   papel) e usa tamanho de página correto. */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  .cifra-print,
+  .cifra-print * {
+    color: #000 !important;
+    background: transparent !important;
+  }
+
+  .cifra-print .text-chord {
+    color: #0e7490 !important;
+  }
+}

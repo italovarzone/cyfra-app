@@ -24,4 +24,5 @@ export type Cifra = {
   capo: string | null;
   url: string;
   lines: CifraLine[];
+  downloaded?: boolean;
 };

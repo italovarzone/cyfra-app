@@ -1,4 +1,4 @@
-import { MongoClient, type Collection, type Document } from "mongodb";
+import { MongoClient, type Collection, type Db, type Document } from "mongodb";
 
 const DB_NAME = "dbcyfra";
 const USERS_COLLECTION = "user";
@@ -20,7 +20,12 @@ function getClientPromise(): Promise<MongoClient> {
   return global._mongoClientPromise;
 }
 
-export async function getUsersCollection(): Promise<Collection<Document>> {
+export async function getDb(): Promise<Db> {
   const client = await getClientPromise();
-  return client.db(DB_NAME).collection(USERS_COLLECTION);
+  return client.db(DB_NAME);
+}
+
+export async function getUsersCollection(): Promise<Collection<Document>> {
+  const db = await getDb();
+  return db.collection(USERS_COLLECTION);
 }

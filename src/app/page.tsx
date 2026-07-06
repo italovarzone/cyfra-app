@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { SearchResult } from "@/lib/types";
+import BottomNav from "@/components/BottomNav";
 
 type Recent = SearchResult & { at: number };
 
@@ -70,7 +71,7 @@ export default function Home() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col">
+    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col pb-20">
       <header className="sticky top-0 z-10 border-b border-border bg-bg/90 px-4 pb-3 pt-4 backdrop-blur">
         <div className="mb-3 flex items-center justify-between">
           <h1 className="text-xl font-bold tracking-tight">
@@ -164,6 +165,8 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      <BottomNav />
     </main>
   );
 }
