@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { AUTH_COOKIE, sessionToken } from "@/lib/auth";
+import { AUTH_COOKIE, verifySession } from "@/lib/auth";
 
 // Rotas liberadas sem login.
 const PUBLIC_PATHS = ["/login", "/api/login"];
@@ -12,12 +12,11 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const expected = await sessionToken();
   const token = req.cookies.get(AUTH_COOKIE)?.value;
+  const username = await verifySession(token);
 
-  // Se as envs não estiverem configuradas, expected é null e o acesso é
-  // bloqueado para evitar deixar o app aberto por engano.
-  if (expected && token === expected) {
+  // Se a sessão for válida (assinatura HMAC íntegra e não expirada), libera.
+  if (username) {
     return NextResponse.next();
   }
 
