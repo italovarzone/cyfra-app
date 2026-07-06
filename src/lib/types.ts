@@ -10,7 +10,7 @@ export type Token =
   | { t: "chord"; v: string; pad: number }
   | { t: "text"; v: string };
 
-export type LineType = "chord" | "text" | "section" | "blank";
+export type LineType = "chord" | "text" | "section" | "blank" | "tab";
 
 export type CifraLine = {
   type: LineType;

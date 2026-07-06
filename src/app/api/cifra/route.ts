@@ -81,16 +81,36 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // marca o diagrama de 6 cordas (dentro de <span class="cnt">) antes de
+    // remover as tags, para poder ocultá-lo separadamente dos acordes/letra
+    const TAB_START = "\u0001TAB\u0001";
+    const TAB_END = "\u0001/TAB\u0001";
+    let pre = preMatch[1].replace(
+      /<span class="cnt">([\s\S]*?)<\/span>/g,
+      (_, inner: string) => `${TAB_START}${inner}${TAB_END}`,
+    );
+
     // remove links/tags dentro do <pre>, preservando apenas <b> (acordes)
-    let pre = preMatch[1]
+    pre = pre
       .replace(/<a\b[^>]*>/gi, "")
       .replace(/<\/a>/gi, "")
       .replace(/<span[^>]*>/gi, "")
       .replace(/<\/span>/gi, "");
 
+    let inTab = false;
     const lines: CifraLine[] = pre.split("\n").map((raw) => {
-      const tokens = tokenizeLine(raw);
-      return { type: classify(raw, tokens), tokens };
+      let isTab = inTab;
+      if (raw.includes(TAB_START)) {
+        isTab = true;
+        inTab = true;
+      }
+      if (raw.includes(TAB_END)) {
+        isTab = true;
+        inTab = false;
+      }
+      const clean = raw.split(TAB_START).join("").split(TAB_END).join("");
+      const tokens = tokenizeLine(clean);
+      return { type: isTab ? "tab" : classify(clean, tokens), tokens };
     });
 
     // remove linhas em branco no início/fim

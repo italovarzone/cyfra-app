@@ -22,6 +22,7 @@ export default function CifraClient() {
   const [semitones, setSemitones] = useState(0);
   const [simplified, setSimplified] = useState(false);
   const [hideChords, setHideChords] = useState(false);
+  const [hideTab, setHideTab] = useState(false);
   const [fontIdx, setFontIdx] = useState(2);
 
   const [scrolling, setScrolling] = useState(false);
@@ -171,6 +172,7 @@ export default function CifraClient() {
               line={line}
               transform={transform}
               hideChords={hideChords}
+              hideTab={hideTab}
             />
           ))}
         </div>
@@ -221,6 +223,9 @@ export default function CifraClient() {
               >
                 Só letra
               </Toggle>
+              <Toggle active={hideTab} onClick={() => setHideTab((v) => !v)}>
+                Ocultar tablatura
+              </Toggle>
             </div>
           </div>
         )}
@@ -253,16 +258,24 @@ function LineView({
   line,
   transform,
   hideChords,
+  hideTab,
 }: {
   line: CifraLine;
   transform: (c: string) => string;
   hideChords: boolean;
+  hideTab: boolean;
 }) {
   if (line.type === "blank") return <div>{" "}</div>;
 
   if (line.type === "section") {
     const text = line.tokens.map((t) => t.v).join("");
     return <div className="font-sans font-semibold text-accent/90">{text}</div>;
+  }
+
+  if (line.type === "tab") {
+    if (hideTab) return null;
+    const text = line.tokens.map((t) => t.v).join("");
+    return <div className="text-muted">{text || " "}</div>;
   }
 
   if (line.type === "text") {
